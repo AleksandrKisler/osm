@@ -1,15 +1,15 @@
 <template>
   <div class="wrapper">
-    {{ title }}
     <div class="canvas-wrapper">
       <canvas
         id="plan"
         ref="canvas"
         :height="400"
-        :width="100"
+        :width="1000"
         @mousedown="startDraw"
         @mousemove="draw"
         @mouseup="stopDraw"
+        @mouseleave="stopDraw"
       ></canvas>
     </div>
   </div>
@@ -32,9 +32,10 @@ interface StrokesInterface {
 
 type StrokeType = 'line' | 'square'
 
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 
-const title = 'Pool'
+const color = '#000'
+// const lineWidth = 1
 const look = ref<boolean>(false)
 const drawing = ref<boolean>(false)
 const guides = ref<{ x: number; y: number }[]>([])
@@ -44,7 +45,7 @@ const strokes = ref<StrokesInterface>({
   from: { x: 0, y: 0 },
   coordinates: [],
   color: '',
-  width: '',
+  width: 1,
   fill: false,
   lineCap: '',
   lineJoin: '',
@@ -68,31 +69,34 @@ function getCoordinates(event: Event) {
 }
 
 function startDraw($event: Event) {
+  console.log('startDraw')
+
   if (!look.value) {
     drawing.value = true
     strokes.value = {
       type: strokeType.value,
       from: getCoordinates($event),
       coordinates: [],
-      color: 'black',
+      color: '#000',
       width: 2,
       fill: false,
-      lineCap: '',
-      lineJoin: '',
+      lineCap: 'square',
+      lineJoin: 'miter',
     }
     guides.value = []
   }
 }
 
 function draw($event: Event) {
-  console.log($event)
+  console.log('draw')
+
   if (drawing.value) {
     const coordinate = getCoordinates($event)
     switch (strokeType.value) {
       case 'line':
         guides.value = [{ x: coordinate.x, y: coordinate.y }]
         break
-      case 'line':
+      case 'square':
         guides.value = [
           { x: coordinate.x, y: strokes.value.from.y },
           { x: coordinate.x, y: coordinate.y },
@@ -101,11 +105,41 @@ function draw($event: Event) {
         ]
         break
     }
+
+    drawGuide(true)
   }
 }
+function drawGuide(closingPath: boolean) {
+  nextTick(() => {
+    if (ctx.value) {
+      ctx.value.strokeStyle = color
+      ctx.value.lineWidth = 1
+      ctx.value.lineJoin = 'miter'
+      ctx.value.lineCap = 'round'
 
-function stopDraw($event: Event) {
-  console.log($event)
+      ctx.value.beginPath()
+      ctx.value.setLineDash([15, 15])
+      if (strokes.value.type && ctx.value) {
+        ctx.value.moveTo(strokes.value.from.x, strokes.value.from.y)
+        guides.value.forEach((coordinate: { x: number; y: number }) => {
+          ctx.value?.lineTo(coordinate.x, coordinate.y)
+        })
+      }
+    }
+
+    if (closingPath) {
+      ctx.value?.closePath()
+    }
+  })
+
+  ctx.value?.stroke()
+}
+
+function stopDraw() {
+  if (drawing.value) {
+    strokes.value.coordinates = guides.value.length > 0 ? guides.value : strokes.value.coordinates
+    drawing.value = false
+  }
 }
 </script>
 
