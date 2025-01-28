@@ -4,9 +4,7 @@
       <canvas
         id="plan"
         ref="canvas"
-        :height="400"
-        :width="1000"
-        @mousedown="startDraw"
+        @dblclick="startDraw"
         @mousemove="draw"
         @mouseup="stopDraw"
         @mouseleave="stopDraw"
@@ -16,6 +14,8 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import canvasConstructorTools from '@/helper/canvas'
 interface StrokesInterface {
   type: StrokeType
   from: {
@@ -32,9 +32,7 @@ interface StrokesInterface {
 
 type StrokeType = 'line' | 'square'
 
-import { nextTick, onMounted, ref } from 'vue'
-
-const color = '#000'
+// const color = '#000'
 // const lineWidth = 1
 const look = ref<boolean>(false)
 const drawing = ref<boolean>(false)
@@ -51,13 +49,20 @@ const strokes = ref<StrokesInterface>({
   lineJoin: '',
 })
 
+const width = 1000
+const height = 600
+
 const ctx = ref<CanvasRenderingContext2D | undefined>(undefined)
 const canvas = ref<HTMLCanvasElement | null>(null)
+const tools = canvasConstructorTools(ctx)
 
-onMounted(() => {
+onMounted(async () => {
   canvas.value = document.getElementById('plan') as HTMLCanvasElement
   if (canvas.value?.getContext) {
     ctx.value = canvas.value.getContext('2d') ?? undefined
+    canvas.value.height = height
+    canvas.value.width = width
+    await tools.createGridTemplate(width, height)
   }
 })
 
@@ -69,18 +74,21 @@ function getCoordinates(event: Event) {
 }
 
 function startDraw($event: Event) {
-  console.log('startDraw')
-
   if (!look.value) {
     drawing.value = true
+    const from = tools.lauchDraw(getCoordinates($event))
+    if (!from) {
+      return
+    }
+    // just check logic
     strokes.value = {
-      type: strokeType.value,
-      from: getCoordinates($event),
+      type: 'line',
+      from,
       coordinates: [],
       color: '#000',
       width: 2,
       fill: false,
-      lineCap: 'square',
+      lineCap: 'rounded',
       lineJoin: 'miter',
     }
     guides.value = []
@@ -88,54 +96,42 @@ function startDraw($event: Event) {
 }
 
 function draw($event: Event) {
-  console.log('draw')
-
   if (drawing.value) {
     const coordinate = getCoordinates($event)
-    switch (strokeType.value) {
-      case 'line':
-        guides.value = [{ x: coordinate.x, y: coordinate.y }]
-        break
-      case 'square':
-        guides.value = [
-          { x: coordinate.x, y: strokes.value.from.y },
-          { x: coordinate.x, y: coordinate.y },
-          { x: strokes.value.from.x, y: coordinate.y },
-          { x: strokes.value.from.x, y: strokes.value.from.y },
-        ]
-        break
-    }
-
+    guides.value = [{ x: coordinate.x, y: coordinate.y }]
     drawGuide(true)
+    tools.drawDottedtLine(strokes.value.from, coordinate)
   }
 }
 function drawGuide(closingPath: boolean) {
-  nextTick(() => {
-    if (ctx.value) {
-      ctx.value.strokeStyle = color
-      ctx.value.lineWidth = 1
-      ctx.value.lineJoin = 'miter'
-      ctx.value.lineCap = 'round'
+  console.log(closingPath)
 
-      ctx.value.beginPath()
-      ctx.value.setLineDash([15, 15])
-      if (strokes.value.type && ctx.value) {
-        ctx.value.moveTo(strokes.value.from.x, strokes.value.from.y)
-        guides.value.forEach((coordinate: { x: number; y: number }) => {
-          ctx.value?.lineTo(coordinate.x, coordinate.y)
-        })
-      }
-    }
+  // nextTick(() => {
+  //   if (ctx.value) {
+  //     ctx.value.strokeStyle = color
+  //     ctx.value.lineWidth = 1
+  //     // ctx.value.lineJoin = 'miter'
+  //     // ctx.value.lineCap = 'round'
 
-    if (closingPath) {
-      ctx.value?.closePath()
-    }
-  })
-
-  ctx.value?.stroke()
+  //     ctx.value.beginPath()
+  //     ctx.value.setLineDash([15, 15])
+  //     if (strokes.value.type && ctx.value) {
+  //       ctx.value.moveTo(strokes.value.from.x, strokes.value.from.y)
+  //       guides.value.forEach((coordinate: { x: number; y: number }) => {
+  //         ctx.value?.lineTo(coordinate.x, coordinate.y)
+  //       })
+  //     }
+  //     if (closingPath) {
+  //       ctx.value?.closePath()
+  //     }
+  //   }
+  //   ctx.value?.stroke()
+  // })
 }
 
 function stopDraw() {
+  console.log('stop draw')
+
   if (drawing.value) {
     strokes.value.coordinates = guides.value.length > 0 ? guides.value : strokes.value.coordinates
     drawing.value = false
@@ -145,6 +141,8 @@ function stopDraw() {
 
 <style lang="scss" scoped>
 .canvas-wrapper {
+  display: flex;
   border: 1px solid grey;
+  width: max-content;
 }
 </style>
