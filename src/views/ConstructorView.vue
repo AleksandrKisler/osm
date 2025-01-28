@@ -1,8 +1,10 @@
 <template>
   <div class="wrapper">
     <div class="canvas-wrapper">
+      <canvas id="grid" class="grid" />
       <canvas
         id="plan"
+        class="plan"
         ref="canvas"
         @dblclick="startDraw"
         @mousemove="draw"
@@ -14,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import canvasConstructorTools from '@/helper/canvas'
 interface StrokesInterface {
   type: StrokeType
@@ -58,11 +60,15 @@ const tools = canvasConstructorTools(ctx)
 
 onMounted(async () => {
   canvas.value = document.getElementById('plan') as HTMLCanvasElement
+  canvas.value.height = height
+  canvas.value.width = width
+  const grid = document.getElementById('grid') as HTMLCanvasElement
+  grid.height = height
+  grid.width = width
   if (canvas.value?.getContext) {
-    ctx.value = canvas.value.getContext('2d') ?? undefined
-    canvas.value.height = height
-    canvas.value.width = width
+    ctx.value = grid.getContext('2d') ?? undefined
     await tools.createGridTemplate(width, height)
+    ctx.value = canvas.value.getContext('2d') ?? undefined
   }
 })
 
@@ -97,44 +103,29 @@ function startDraw($event: Event) {
 
 function draw($event: Event) {
   if (drawing.value) {
+    if (ctx.value) ctx.value.lineWidth = 1
     const coordinate = getCoordinates($event)
-    guides.value = [{ x: coordinate.x, y: coordinate.y }]
-    drawGuide(true)
+    ctx.value?.clearRect(0, 0, width, height)
     tools.drawDottedtLine(strokes.value.from, coordinate)
+    const to = tools.lauchDraw(coordinate)
+    if (to) {
+      strokes.value.coordinates = [to]
+    }
+    drawGuide(true)
   }
 }
 function drawGuide(closingPath: boolean) {
-  console.log(closingPath)
-
-  // nextTick(() => {
-  //   if (ctx.value) {
-  //     ctx.value.strokeStyle = color
-  //     ctx.value.lineWidth = 1
-  //     // ctx.value.lineJoin = 'miter'
-  //     // ctx.value.lineCap = 'round'
-
-  //     ctx.value.beginPath()
-  //     ctx.value.setLineDash([15, 15])
-  //     if (strokes.value.type && ctx.value) {
-  //       ctx.value.moveTo(strokes.value.from.x, strokes.value.from.y)
-  //       guides.value.forEach((coordinate: { x: number; y: number }) => {
-  //         ctx.value?.lineTo(coordinate.x, coordinate.y)
-  //       })
-  //     }
-  //     if (closingPath) {
-  //       ctx.value?.closePath()
-  //     }
-  //   }
-  //   ctx.value?.stroke()
-  // })
+  nextTick(() => {
+    console.log('is next tick', closingPath)
+  })
 }
 
 function stopDraw() {
-  console.log('stop draw')
-
   if (drawing.value) {
-    strokes.value.coordinates = guides.value.length > 0 ? guides.value : strokes.value.coordinates
     drawing.value = false
+    if (ctx.value) ctx.value.lineWidth = 3
+    ctx.value?.clearRect(0, 0, width, height)
+    tools.drawLine(strokes.value.from, strokes.value.coordinates[0])
   }
 }
 </script>
@@ -144,5 +135,18 @@ function stopDraw() {
   display: flex;
   border: 1px solid grey;
   width: max-content;
+  position: relative;
+
+  .grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+  }
+
+  .plan {
+    position: relative;
+    z-index: 10;
+  }
 }
 </style>
