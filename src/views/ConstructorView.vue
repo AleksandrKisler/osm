@@ -1,145 +1,106 @@
 <template>
-  <div class="wrapper">
-    <div class="canvas-wrapper">
-      <canvas id="grid" class="grid" />
-      <canvas
-        id="plan"
-        class="plan"
-        ref="canvas"
-        @dblclick="startDraw"
-        @mousemove="draw"
-        @mouseup="stopDraw"
-        @mouseleave="stopDraw"
-      ></canvas>
+  <div class="page-wrapper">
+    <div class="constructor-wrapper">
+      <div class="konva-wrapper" id="konva-wrapper" ref="konvaWrapper">
+        <div id="container"></div>
+      </div>
+      <div class="entytes">
+        <!-- <div class="entyty" @click="addShape('cabinet')">С</div> -->
+        <div class="entyty" @click="addShape('workplace')">WP</div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import Konva from 'konva'
 import { onMounted, ref } from 'vue'
-import canvasConstructorTools from '@/helper/canvas'
-interface StrokesInterface {
-  type: StrokeType
-  from: {
-    x: number
-    y: number
-  }
-  to: { x: number; y: number } | undefined
-}
 
-type StrokeType = 'line' | 'square'
+const konvaWrapper = ref<HTMLElement | null>(null)
+const stage = ref<Konva.Stage | null>(null)
+const layer = ref<Konva.Layer>(new Konva.Layer())
+const group = ref<Konva.Group>(new Konva.Group())
 
-// const color = '#000'
-// const lineWidth = 1
-const look = ref<boolean>(false)
-const drawing = ref<boolean>(false)
-// const guides = ref<{ x: number; y: number }[]>([])
-const lastDraftPointPosition = ref<{ x: number; y: number }>({ x: 0, y: 0 })
-const strokeType = ref<StrokeType>('line')
-const stroke = ref<StrokesInterface>({
-  type: strokeType.value,
-  from: { x: 0, y: 0 },
-  to: undefined,
-})
-const strokeList = ref<StrokesInterface[]>([])
-
-const width = 1000
-const height = 600
-
-const ctx = ref<CanvasRenderingContext2D | undefined>(undefined)
-const canvas = ref<HTMLCanvasElement | null>(null)
-const tools = canvasConstructorTools(ctx)
-
-onMounted(async () => {
-  canvas.value = document.getElementById('plan') as HTMLCanvasElement
-  const grid = document.getElementById('grid') as HTMLCanvasElement
-  canvas.value.height = grid.height = height
-  canvas.value.width = grid.width = width
-  if (canvas.value?.getContext) {
-    ctx.value = grid.getContext('2d') ?? undefined
-    await tools.createGridTemplate(width, height)
-    ctx.value = canvas.value.getContext('2d') ?? undefined
-  }
-})
-
-function getCoordinates(event: Event) {
-  return {
-    x: (<MouseEvent>event).offsetX,
-    y: (<MouseEvent>event).offsetY,
-  }
-}
-
-function startDraw($event: Event) {
-  const from = tools.lauchDraw(getCoordinates($event))
-  if (!look.value && from) {
-    drawing.value = true
-    stroke.value = {
-      type: 'line',
-      from,
-      to: undefined,
-    }
-  }
-}
-
-function draw($event: Event) {
-  if (drawing.value) {
-    if (ctx.value) ctx.value.lineWidth = 1
-    const coordinate = getCoordinates($event)
-    ctx.value?.clearRect(0, 0, width, height)
-    drawShape()
-    tools.drawDottedtLine(stroke.value.from, coordinate)
-    const to = tools.lauchDraw(coordinate)
-    if (to) {
-      lastDraftPointPosition.value = to
-    }
-  }
-}
-// function drawGuide(closingPath: boolean) {
-//   console.log(closingPath)
-//   nextTick(() => {
-//     console.log('is next tick')
-//   })
-// }
-
-function stopDraw() {
-  if (drawing.value) {
-    drawing.value = false
-    if (ctx.value) ctx.value.lineWidth = 3
-    stroke.value.to = lastDraftPointPosition.value
-    strokeList.value.push(stroke.value)
-    drawShape()
-
-    // tools.drawLine(strokes.value.from, strokes.value.coordinates[0])
-  }
-}
-
-function drawShape() {
-  ctx.value?.clearRect(0, 0, width, height)
-  strokeList.value.forEach((stroke: StrokesInterface) => {
-    if (stroke.to) {
-      tools.drawLine(stroke.from, stroke.to)
-    }
+onMounted(() => {
+  const height = konvaWrapper.value?.clientHeight
+  const widht = konvaWrapper.value?.clientWidth
+  stage.value = new Konva.Stage({
+    container: 'container',
+    width: widht,
+    height: height,
   })
+  layer.value.add(group.value as Konva.Group)
+  const cabinet = new Konva.Rect({
+    x: 25,
+    y: 25,
+    width: 500,
+    height: 350,
+    fill: '#f5f5f5',
+    cornerRadius: 12,
+    strokeWidth: 2,
+    stroke: '#474747',
+    draggable: true,
+  })
+  group.value?.add(cabinet)
+  stage.value.add(layer.value as Konva.Layer)
+})
+
+function addShape(type: string) {
+  console.log(type)
+  const workplace = new Konva.Rect({
+    x: 0,
+    y: 50,
+    width: 50,
+    height: 50,
+    fill: '#292929',
+    cornerRadius: 4,
+    draggable: true,
+  })
+
+  group.value?.add(workplace)
 }
 </script>
 
 <style lang="scss" scoped>
-.canvas-wrapper {
+.page-wrapper {
+  padding: 2rem 1rem;
   display: flex;
-  border: 1px solid grey;
-  width: max-content;
-  position: relative;
+  justify-content: center;
+  width: 100%;
+}
 
-  .grid {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 1;
+.constructor-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 12px;
+
+  .konva-wrapper {
+    width: 100%;
+    height: 600px;
+    border: 1px solid gray;
+
+    .konva-p {
+      border: 1px solid gray;
+    }
   }
 
-  .plan {
-    position: relative;
-    z-index: 10;
+  .entytes {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    .entyty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 50px;
+      border-radius: 8px;
+      background-color: #acacac;
+      font-size: medium;
+      cursor: pointer;
+    }
   }
 }
 </style>
